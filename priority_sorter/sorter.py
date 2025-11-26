@@ -57,7 +57,7 @@ class PairwiseSorter(Generic[T]):
         """
         data = list(items)
         if not data:
-            self.state = EmptyState([])
+            self.state = DoneState([])
             return
 
         if len(data) == 1:
