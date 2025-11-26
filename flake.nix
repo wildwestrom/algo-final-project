@@ -7,6 +7,7 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       devenv,
       systems,
@@ -28,8 +29,8 @@
               (
                 { pkgs, ... }:
                 let
-                  # Use Python 3.13 if available, fallback to python3Packages
-                  pythonPackages = pkgs.python313Packages or pkgs.python3Packages;
+                  pythonBase = if pkgs ? python313 then pkgs.python313 else pkgs.python3;
+                  python = pythonBase.withPackages (ps: [ ps.tkinter ]);
                 in
                 {
                   packages = [
@@ -38,7 +39,7 @@
                   ];
 
                   languages.python.enable = true;
-                  languages.python.package = pythonPackages.python;
+                  languages.python.package = python;
                   languages.python.uv.enable = true;
                   languages.python.uv.sync.enable = true;
                 }
