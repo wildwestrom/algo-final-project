@@ -6,54 +6,49 @@ that never asks for implied comparisons, so contradictions are impossible.
 
 ## Quick start
 
+### Requirements
+
+- Python 3 (tkinter is included by default)
+
+### Running the application
+
+```bash
+python main.py
+```
+
 ### NixOS (or any system with flakes enabled)
 
 ```bash
-# Enter the development shell (provides Python, uv, and Tkinter)
+# Enter the development shell (provides Python and Tkinter)
 nix develop
 
-# Install dependencies with uv
-uv sync
-
 # Run the application
-uv run python main.py
+python main.py
 ```
 
 ### Debian/Ubuntu (other apt-based Linux distros)
 
 ```bash
 sudo apt update
-sudo apt install python3 python3-venv python3-tk pipx
-pipx install uv  # or python3 -m pip install uv --user
+sudo apt install python3 python3-tk
 
-python3 -m venv .venv
-source .venv/bin/activate
-uv sync
-uv run python main.py
+python3 main.py
 ```
 
 ### macOS (Apple Silicon or Intel)
 
 ```bash
-# Install Python 3.11+ (Homebrew shown here)
-brew install python@3.11 uv tcl-tk
+# Python 3 comes with macOS, or install via Homebrew
+brew install python3 tcl-tk
 
-python3.11 -m venv .venv
-source .venv/bin/activate
-uv sync
-uv run python main.py
+python3 main.py
 ```
 
-### Windows (PowerShell)
+### Windows
 
 ```powershell
-winget install Python.Python.3.11  # confirms python3 + pip
-pip install --user uv
-
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-uv sync
-uv run python main.py
+# Python 3 includes tkinter by default
+python main.py
 ```
 
 Use the entry box to add priorities, edit/delete existing ones inline, then
@@ -64,8 +59,13 @@ return to the list view at any time.
 ## Tests
 
 ```bash
-# From within the nix develop shell
-uv run pytest
+# Built-in runner that only needs the Python standard library
+python -m tests.run_tests
+```
+
+```bash
+# (Optional) If you already have pytest installed:
+pytest
 ```
 
 The test suite runs a deterministic simulation of thousands of insertions and

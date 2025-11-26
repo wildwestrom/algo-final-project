@@ -40,8 +40,6 @@
 
                   languages.python.enable = true;
                   languages.python.package = python;
-                  languages.python.uv.enable = true;
-                  languages.python.uv.sync.enable = true;
                 }
               )
             ];
