@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import random
+import traceback
+from collections.abc import Callable
 
 from priority_sorter.sorter import Choice, PairwiseSorter, expected_max_comparisons
 
@@ -44,7 +46,6 @@ def test_sorts_matches_ground_truth_medium_sizes() -> None:
 
 
 def test_sorts_matches_ground_truth_large_sizes() -> None:
-    # Large enough to stress the algorithm while keeping runtime practical
     for n in [610, 987, 1597, 2584, 4181]:
         comparisons, gt, out = _run_simulated_sort(n, seed=0xBABABABABABABABA)
         assert out == gt
@@ -52,7 +53,6 @@ def test_sorts_matches_ground_truth_large_sizes() -> None:
 
 
 def test_empty_list() -> None:
-    """Test that empty list is handled correctly."""
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting([])
     assert sorter.is_done()
@@ -62,7 +62,6 @@ def test_empty_list() -> None:
 
 
 def test_single_element() -> None:
-    """Test that single element list is handled correctly."""
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting([42])
     assert sorter.is_done()
@@ -72,7 +71,6 @@ def test_single_element() -> None:
 
 
 def test_already_sorted_ascending() -> None:
-    """Test list that is already sorted in ascending order (should be reversed)."""
     items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
@@ -94,7 +92,6 @@ def test_already_sorted_ascending() -> None:
 
 
 def test_already_sorted_descending() -> None:
-    """Test list that is already sorted in descending order."""
     items = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
@@ -116,7 +113,6 @@ def test_already_sorted_descending() -> None:
 
 
 def test_all_same_values() -> None:
-    """Test list with all identical values."""
     items = [5, 5, 5, 5, 5, 5, 5]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
@@ -127,7 +123,6 @@ def test_all_same_values() -> None:
         if pair is None:
             break
         current, pivot = pair
-        # When equal, choose RIGHT (current <= pivot)
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
         comparisons += 1
@@ -139,7 +134,6 @@ def test_all_same_values() -> None:
 
 
 def test_duplicate_values() -> None:
-    """Test list with some duplicate values."""
     items = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
@@ -161,7 +155,6 @@ def test_duplicate_values() -> None:
 
 
 def test_negative_numbers() -> None:
-    """Test list with negative numbers."""
     items = [-5, -2, -8, -1, -9, -3, -7, -4, -6]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
@@ -183,7 +176,6 @@ def test_negative_numbers() -> None:
 
 
 def test_mixed_positive_negative() -> None:
-    """Test list with both positive and negative numbers."""
     items = [-3, 5, -1, 0, 4, -2, 1, -5, 2, -4, 3]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
@@ -205,12 +197,10 @@ def test_mixed_positive_negative() -> None:
 
 
 def test_finish_sorting_mid_sort() -> None:
-    """Test calling finish_sorting before completing all comparisons."""
     items = [5, 2, 8, 1, 9, 3, 7, 4, 6]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
 
-    # Make a few comparisons
     for _ in range(3):
         pair = sorter.current_pair()
         if pair is None:
@@ -219,34 +209,27 @@ def test_finish_sorting_mid_sort() -> None:
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
 
-    # Finish early - should return partially sorted + unsorted
     result = sorter.finish_sorting()
-    # Result should contain all items, just potentially in different order
     assert len(result) == len(items)
     assert set(result) == set(items)
 
 
 def test_multiple_start_sorting_calls() -> None:
-    """Test that multiple start_sorting calls reset the state correctly."""
     sorter: PairwiseSorter[int] = PairwiseSorter()
 
-    # First sort
     items1 = [3, 1, 4, 1, 5]
     sorter.start_sorting(items1)
     while sorter.current_pair() is not None:
-        pair = sorter.current_pair()
-        current, pivot = pair
+        current, pivot = sorter.current_pair()
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
     result1 = sorter.finish_sorting()
     assert result1 == sorted(items1, reverse=True)
 
-    # Second sort (should reset state)
     items2 = [9, 2, 6, 5, 3]
     sorter.start_sorting(items2)
     while sorter.current_pair() is not None:
-        pair = sorter.current_pair()
-        current, pivot = pair
+        current, pivot = sorter.current_pair()
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
     result2 = sorter.finish_sorting()
@@ -254,18 +237,14 @@ def test_multiple_start_sorting_calls() -> None:
 
 
 def test_make_choice_when_not_comparing() -> None:
-    """Test that make_choice is safe to call when not in CompareState."""
     sorter: PairwiseSorter[int] = PairwiseSorter()
 
-    # Call make_choice before start_sorting (should be safe)
     sorter.make_choice(Choice.LEFT)
     sorter.make_choice(Choice.RIGHT)
 
-    # Start with empty list (DoneState immediately)
     sorter.start_sorting([])
     assert sorter.is_done()
 
-    # Call make_choice when done (should be safe)
     sorter.make_choice(Choice.LEFT)
     sorter.make_choice(Choice.RIGHT)
 
@@ -274,25 +253,64 @@ def test_make_choice_when_not_comparing() -> None:
 
 
 def test_current_pair_when_not_comparing() -> None:
-    """Test that current_pair returns None when not in CompareState."""
     sorter: PairwiseSorter[int] = PairwiseSorter()
 
-    # Before start_sorting
     assert sorter.current_pair() is None
 
-    # After empty list
     sorter.start_sorting([])
     assert sorter.current_pair() is None
 
-    # After single element
     sorter.start_sorting([42])
     assert sorter.current_pair() is None
 
-    # After completing sort
     sorter.start_sorting([3, 1, 4])
     while sorter.current_pair() is not None:
-        pair = sorter.current_pair()
-        current, pivot = pair
+        current, pivot = sorter.current_pair()
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
     assert sorter.current_pair() is None
+
+
+def _collect_tests() -> list[tuple[str, Callable[[], None]]]:
+    tests: list[tuple[str, Callable[[], None]]] = []
+    for name, obj in globals().items():
+        if name.startswith("test_") and callable(obj):
+            tests.append((name, obj))  # type: ignore[arg-type]
+    tests.sort(key=lambda pair: pair[0])
+    return tests
+
+
+def _run_tests(tests: list[tuple[str, Callable[[], None]]]) -> int:
+    failures = 0
+    for name, func in tests:
+        try:
+            func()
+        except AssertionError:
+            failures += 1
+            print(f"FAIL: {name}")
+            traceback.print_exc()
+        except Exception:
+            failures += 1
+            print(f"ERROR: {name}")
+            traceback.print_exc()
+        else:
+            print(f"PASS: {name}")
+    total = len(tests)
+    print(f"Ran {total} test{'s' if total != 1 else ''}.")
+    if failures:
+        print(f"{failures} failure{'s' if failures != 1 else ''}.")
+    else:
+        print("All tests passed.")
+    return failures
+
+
+def main() -> int:
+    tests = _collect_tests()
+    if not tests:
+        print("No tests discovered.")
+        return 1
+    return 1 if _run_tests(tests) else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

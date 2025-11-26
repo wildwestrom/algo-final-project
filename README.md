@@ -60,7 +60,7 @@ return to the list view at any time.
 
 ```bash
 # Built-in runner that only needs the Python standard library
-python -m tests.run_tests
+python tests.py
 ```
 
 ```bash
