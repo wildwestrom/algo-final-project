@@ -76,7 +76,7 @@ def test_already_sorted_ascending() -> None:
     items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
-    
+
     comparisons = 0
     while True:
         pair = sorter.current_pair()
@@ -86,7 +86,7 @@ def test_already_sorted_ascending() -> None:
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
         comparisons += 1
-    
+
     result = sorter.finish_sorting()
     expected = sorted(items, reverse=True)
     assert result == expected
@@ -98,7 +98,7 @@ def test_already_sorted_descending() -> None:
     items = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
-    
+
     comparisons = 0
     while True:
         pair = sorter.current_pair()
@@ -108,7 +108,7 @@ def test_already_sorted_descending() -> None:
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
         comparisons += 1
-    
+
     result = sorter.finish_sorting()
     expected = sorted(items, reverse=True)
     assert result == expected
@@ -120,7 +120,7 @@ def test_all_same_values() -> None:
     items = [5, 5, 5, 5, 5, 5, 5]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
-    
+
     comparisons = 0
     while True:
         pair = sorter.current_pair()
@@ -131,7 +131,7 @@ def test_all_same_values() -> None:
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
         comparisons += 1
-    
+
     result = sorter.finish_sorting()
     expected = sorted(items, reverse=True)
     assert result == expected
@@ -143,7 +143,7 @@ def test_duplicate_values() -> None:
     items = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
-    
+
     comparisons = 0
     while True:
         pair = sorter.current_pair()
@@ -153,7 +153,7 @@ def test_duplicate_values() -> None:
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
         comparisons += 1
-    
+
     result = sorter.finish_sorting()
     expected = sorted(items, reverse=True)
     assert result == expected
@@ -165,7 +165,7 @@ def test_negative_numbers() -> None:
     items = [-5, -2, -8, -1, -9, -3, -7, -4, -6]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
-    
+
     comparisons = 0
     while True:
         pair = sorter.current_pair()
@@ -175,7 +175,7 @@ def test_negative_numbers() -> None:
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
         comparisons += 1
-    
+
     result = sorter.finish_sorting()
     expected = sorted(items, reverse=True)
     assert result == expected
@@ -187,7 +187,7 @@ def test_mixed_positive_negative() -> None:
     items = [-3, 5, -1, 0, 4, -2, 1, -5, 2, -4, 3]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
-    
+
     comparisons = 0
     while True:
         pair = sorter.current_pair()
@@ -197,7 +197,7 @@ def test_mixed_positive_negative() -> None:
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
         comparisons += 1
-    
+
     result = sorter.finish_sorting()
     expected = sorted(items, reverse=True)
     assert result == expected
@@ -209,7 +209,7 @@ def test_finish_sorting_mid_sort() -> None:
     items = [5, 2, 8, 1, 9, 3, 7, 4, 6]
     sorter: PairwiseSorter[int] = PairwiseSorter()
     sorter.start_sorting(items)
-    
+
     # Make a few comparisons
     for _ in range(3):
         pair = sorter.current_pair()
@@ -218,7 +218,7 @@ def test_finish_sorting_mid_sort() -> None:
         current, pivot = pair
         choice = Choice.LEFT if current > pivot else Choice.RIGHT
         sorter.make_choice(choice)
-    
+
     # Finish early - should return partially sorted + unsorted
     result = sorter.finish_sorting()
     # Result should contain all items, just potentially in different order
@@ -229,7 +229,7 @@ def test_finish_sorting_mid_sort() -> None:
 def test_multiple_start_sorting_calls() -> None:
     """Test that multiple start_sorting calls reset the state correctly."""
     sorter: PairwiseSorter[int] = PairwiseSorter()
-    
+
     # First sort
     items1 = [3, 1, 4, 1, 5]
     sorter.start_sorting(items1)
@@ -240,7 +240,7 @@ def test_multiple_start_sorting_calls() -> None:
         sorter.make_choice(choice)
     result1 = sorter.finish_sorting()
     assert result1 == sorted(items1, reverse=True)
-    
+
     # Second sort (should reset state)
     items2 = [9, 2, 6, 5, 3]
     sorter.start_sorting(items2)
@@ -256,19 +256,19 @@ def test_multiple_start_sorting_calls() -> None:
 def test_make_choice_when_not_comparing() -> None:
     """Test that make_choice is safe to call when not in CompareState."""
     sorter: PairwiseSorter[int] = PairwiseSorter()
-    
+
     # Call make_choice before start_sorting (should be safe)
     sorter.make_choice(Choice.LEFT)
     sorter.make_choice(Choice.RIGHT)
-    
+
     # Start with empty list (DoneState immediately)
     sorter.start_sorting([])
     assert sorter.is_done()
-    
+
     # Call make_choice when done (should be safe)
     sorter.make_choice(Choice.LEFT)
     sorter.make_choice(Choice.RIGHT)
-    
+
     result = sorter.finish_sorting()
     assert result == []
 
@@ -276,18 +276,18 @@ def test_make_choice_when_not_comparing() -> None:
 def test_current_pair_when_not_comparing() -> None:
     """Test that current_pair returns None when not in CompareState."""
     sorter: PairwiseSorter[int] = PairwiseSorter()
-    
+
     # Before start_sorting
     assert sorter.current_pair() is None
-    
+
     # After empty list
     sorter.start_sorting([])
     assert sorter.current_pair() is None
-    
+
     # After single element
     sorter.start_sorting([42])
     assert sorter.current_pair() is None
-    
+
     # After completing sort
     sorter.start_sorting([3, 1, 4])
     while sorter.current_pair() is not None:
