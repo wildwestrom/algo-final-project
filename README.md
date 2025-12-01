@@ -4,7 +4,7 @@ Interactive Tkinter application that helps users build a strict total order of
 priorities using safe pairwise comparisons. The core algorithm is a binary insertion sort 
 that never asks for implied comparisons, so contradictions are impossible.
 
-## Quick start
+## Running
 
 ### Requirements
 
@@ -50,6 +50,11 @@ python3 main.py
 # Python 3 includes tkinter by default
 python main.py
 ```
+
+If you already have python set up, you might just be able to double click on
+`main.py` and have it open up.
+
+## Usage
 
 Use the entry box to add priorities, edit/delete existing ones inline, then
 press **Sort Items** to enter the comparison workflow. Left/right buttons
