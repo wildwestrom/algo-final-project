@@ -110,6 +110,23 @@ class PrioritySorterApp:
         )
         self.right_button.pack(fill="x")
 
+        self.results_var = tk.StringVar(value="")
+        self.results_frame = ttk.Frame(self.compare_frame)
+        self.results_title = ttk.Label(
+            self.results_frame,
+            text="Sorted items",
+            style="Title.TLabel",
+        )
+        self.results_title.pack(anchor="center", pady=(0, 20))
+        self.results_label = ttk.Label(
+            self.results_frame,
+            textvariable=self.results_var,
+            justify="left",
+            anchor="w",
+            wraplength=400,
+        )
+        self.results_label.pack(fill="x")
+
         self.back_button = ttk.Button(
             self.compare_frame, text="Back to Items View", command=self.return_to_list
         )
@@ -237,16 +254,30 @@ class PrioritySorterApp:
         if pair:
             left, right = pair
             self.prompt_label.configure(text="Which one is more important?")
+            if not self.choice_frame.winfo_ismapped():
+                self.prompt_label.pack(pady=(0, 30))
+                self.choice_frame.pack(fill="both", expand=True, pady=(0, 20))
             self.left_button.configure(text=left.description, state="normal")
             self.right_button.configure(text=right.description, state="normal")
+            self.results_frame.pack_forget()
+            self.results_var.set("")
         elif self.sorter.is_done():
-            self.prompt_label.configure(text="Done comparing!")
-            self.left_button.configure(text="Great job", state="disabled")
-            self.right_button.configure(text="", state="disabled")
+            # Hide the comparison controls and show the final ordered list
+            self.prompt_label.pack_forget()
+            self.choice_frame.pack_forget()
+            ordered = self.sorter.finish_sorting(self.items)
+            listing = "\n".join(
+                f"{index + 1}. {item.description}" for index, item in enumerate(ordered)
+            )
+            self.results_var.set(listing or "No items to show.")
+            if not self.results_frame.winfo_ismapped():
+                self.results_frame.pack(fill="both", expand=True)
         else:
             self.prompt_label.configure(text="There is nothing to compare.")
             self.left_button.configure(text="", state="disabled")
             self.right_button.configure(text="", state="disabled")
+            self.results_frame.pack_forget()
+            self.results_var.set("")
 
     def return_to_list(self) -> None:
         if self.mode == "compare":
