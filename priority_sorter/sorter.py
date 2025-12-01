@@ -48,11 +48,28 @@ class PairwiseSorter(Generic[T]):
     def __init__(self) -> None:
         self.state: SortState[T] = EmptyState([])
 
+    def snapshot_ordering(self, fallback: Iterable[T] | None = None) -> List[T]:
+        """
+        Return the best-known ordering *without* mutating internal state.
+
+        Mirrors the logic of `finish_sorting`, but keeps the current
+        comparison session intact so the UI can render live progress.
+        """
+        if isinstance(self.state, DoneState):
+            return list(self.state.sorted)
+        if isinstance(self.state, CompareState):
+            stitched = list(self.state.sorted)
+            stitched.extend(self.state.unsorted)
+            return stitched
+        if fallback is None:
+            return list(self.state.items)
+        return list(fallback)
+
     def start_sorting(self, items: Sequence[T]) -> None:
         """
         Initialize the sorter with a fresh batch of items.
 
-        Mirrors the Rust logic by seeding the ordered list with the first entry
+        Works by seeding the ordered list with the first entry
         and treating the rest as a stack processed from the tail backwards.
         """
         data = list(items)
@@ -110,7 +127,7 @@ class PairwiseSorter(Generic[T]):
         Return the best-known ordering and reset transient comparison state.
 
         If invoked mid-session, the partially sorted prefix is concatenated with
-        the untouched suffix to mirror the Rust behavior.
+        the untouched suffix.
         """
         if isinstance(self.state, DoneState):
             return list(self.state.sorted)
@@ -138,7 +155,6 @@ class PairwiseSorter(Generic[T]):
 
 
 def expected_max_comparisons(n: int) -> int:
-    """Upper-bound used by the Rust tests, ported verbatim."""
     if n <= 1:
         return 0
     total = 0

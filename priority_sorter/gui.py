@@ -5,7 +5,7 @@ from tkinter import ttk
 from typing import Dict, List
 
 from .items import Item, seeded_items
-from .sorter import Choice, PairwiseSorter
+from .sorter import Choice, PairwiseSorter, CompareState
 
 
 class ScrollableFrame(ttk.Frame):
@@ -47,6 +47,7 @@ class PrioritySorterApp:
         self.items: List[Item] = seeded_items()
         self.sorter: PairwiseSorter[Item] = PairwiseSorter()
         self.mode: str = "list"
+        self._original_index: Dict[int, int] = {}
         self._edit_vars: Dict[int, tk.StringVar] = {}
 
         self._build_ui()
@@ -91,10 +92,13 @@ class PrioritySorterApp:
         self.prompt_label = ttk.Label(
             self.compare_frame, text="", style="Title.TLabel", wraplength=400
         )
-        self.prompt_label.pack(pady=(0, 30))
 
-        self.choice_frame = ttk.Frame(self.compare_frame)
-        self.choice_frame.pack(fill="both", expand=True, pady=(0, 20))
+        # Main comparison body: choices on the left, live ordering on the right.
+        self.body_frame = ttk.Frame(self.compare_frame)
+
+        # Left column: pairwise choice buttons.
+        self.choice_frame = ttk.Frame(self.body_frame)
+        self.choice_frame.pack(side="left", fill="both", expand=True, pady=(0, 20))
 
         self.left_button = ttk.Button(
             self.choice_frame,
@@ -109,6 +113,39 @@ class PrioritySorterApp:
             command=lambda: self._select_choice(Choice.RIGHT),
         )
         self.right_button.pack(fill="x")
+
+        # Right column: legend + toggle + scrollable live view of current ordering.
+        self.state_column = ttk.Frame(self.body_frame, width=180)
+        self.state_column.pack(side="right", fill="y", padx=(20, 0))
+
+        # Legend explaining movement and search symbols.
+        self.state_legend_frame = ttk.Frame(self.state_column)
+
+        legend_title = ttk.Label(
+            self.state_legend_frame,
+            text="Legend:",
+            font=("Helvetica", 9, "bold"),
+        )
+        legend_title.pack(anchor="w")
+
+        legend_text = ttk.Label(
+            self.state_legend_frame,
+            text="↑ up  ↓ down  • same\n● current  □ search",
+            justify="left",
+        )
+        legend_text.pack(anchor="w")
+
+        self.show_state_var = tk.BooleanVar(value=False)
+        self.state_toggle = ttk.Checkbutton(
+            self.state_column,
+            text="Show live order",
+            variable=self.show_state_var,
+            command=self._on_toggle_state_view,
+        )
+        self.state_toggle.pack(anchor="w", pady=(0, 8))
+
+        self.state_scroll = ScrollableFrame(self.state_column)
+        self.state_scroll.pack(fill="both", expand=True)
 
         self.results_var = tk.StringVar(value="")
         self.results_frame = ttk.Frame(self.compare_frame)
@@ -154,6 +191,10 @@ class PrioritySorterApp:
         self.mode = "compare"
         self.list_frame.pack_forget()
         self.compare_frame.pack(fill="both", expand=True)
+        if not self.prompt_label.winfo_ismapped():
+            self.prompt_label.pack(pady=(0, 30))
+        if not self.body_frame.winfo_ismapped():
+            self.body_frame.pack(fill="both", expand=True, pady=(0, 20))
         self.update_compare_view()
 
     def refresh_items(self) -> None:
@@ -238,6 +279,8 @@ class PrioritySorterApp:
             return
         for item in self.items:
             item.is_editing = False
+        # Remember original positions so we can show how things move during sorting.
+        self._original_index = {id(item): index for index, item in enumerate(self.items)}
         self.sorter.start_sorting(self.items)
         if self.sorter.current_pair() is None and not self.sorter.is_done():
             return
@@ -254,17 +297,15 @@ class PrioritySorterApp:
         if pair:
             left, right = pair
             self.prompt_label.configure(text="Which one is more important?")
-            if not self.choice_frame.winfo_ismapped():
-                self.prompt_label.pack(pady=(0, 30))
-                self.choice_frame.pack(fill="both", expand=True, pady=(0, 20))
             self.left_button.configure(text=left.description, state="normal")
             self.right_button.configure(text=right.description, state="normal")
             self.results_frame.pack_forget()
             self.results_var.set("")
+            self._refresh_state_view()
         elif self.sorter.is_done():
             # Hide the comparison controls and show the final ordered list
             self.prompt_label.pack_forget()
-            self.choice_frame.pack_forget()
+            self.body_frame.pack_forget()
             ordered = self.sorter.finish_sorting(self.items)
             listing = "\n".join(
                 f"{index + 1}. {item.description}" for index, item in enumerate(ordered)
@@ -272,12 +313,101 @@ class PrioritySorterApp:
             self.results_var.set(listing or "No items to show.")
             if not self.results_frame.winfo_ismapped():
                 self.results_frame.pack(fill="both", expand=True)
+            # No need for live view once the final order is shown.
         else:
             self.prompt_label.configure(text="There is nothing to compare.")
             self.left_button.configure(text="", state="disabled")
             self.right_button.configure(text="", state="disabled")
             self.results_frame.pack_forget()
             self.results_var.set("")
+            self._refresh_state_view()
+
+    def _on_toggle_state_view(self) -> None:
+        # Show or hide the legend together with the live ordering.
+        if self.show_state_var.get():
+            if not self.state_legend_frame.winfo_ismapped():
+                self.state_legend_frame.pack(fill="x", pady=(0, 6))
+        else:
+            self.state_legend_frame.pack_forget()
+        self._refresh_state_view()
+
+    def _refresh_state_view(self) -> None:
+        """Render the current best-known ordering with movement indicators."""
+        # Clear existing rows
+        for child in self.state_scroll.inner.winfo_children():
+            child.destroy()
+
+        if not self.show_state_var.get():
+            return
+
+        # Inspect sorter internals to highlight the current item and search window.
+        current_id: int | None = None
+        lo: int | None = None
+        hi: int | None = None
+        sorted_len: int = 0
+        if isinstance(self.sorter.state, CompareState):
+            state = self.sorter.state
+            lo = state.lo
+            hi = state.hi
+            sorted_len = len(state.sorted)
+            if state.unsorted:
+                current_id = id(state.unsorted[-1])
+
+        snapshot = self.sorter.snapshot_ordering(self.items)
+        for index, item in enumerate(snapshot):
+            row = ttk.Frame(self.state_scroll.inner, padding=2)
+            row.pack(fill="x", pady=1)
+
+            original_index = self._original_index.get(id(item))
+            indicator = ""
+            color = None
+            if original_index is not None:
+                delta = original_index - index
+                if delta > 0:
+                    indicator = "↑"
+                    color = "#1a7f37"  # moved up (from below)
+                elif delta < 0:
+                    indicator = "↓"
+                    color = "#b42318"  # moved down (from above)
+                else:
+                    indicator = "•"
+                    color = "#6c6c6c"
+
+            # Visualize the binary-search step:
+            # - "●" marks the current item being inserted.
+            # - "□" marks the active search window in the sorted prefix.
+            status_symbol = ""
+            if current_id is not None and id(item) == current_id:
+                status_symbol = "●"
+            elif (
+                lo is not None
+                and hi is not None
+                and index < sorted_len
+                and lo <= index < hi
+            ):
+                status_symbol = "□"
+
+            if status_symbol:
+                status_label = ttk.Label(row, text=status_symbol, width=2)
+                status_label.pack(side="left")
+
+            arrow_label = ttk.Label(row, text=indicator, width=2)
+            if color is not None:
+                try:
+                    arrow_label.configure(foreground=color)
+                except tk.TclError:
+                    # Some themes may not support custom foreground; ignore.
+                    pass
+            arrow_label.pack(side="left")
+
+            text_label = ttk.Label(
+                row,
+                text=f"{index + 1}. {item.description}",
+                wraplength=160,
+                anchor="w",
+                justify="left",
+            )
+            text_label.pack(side="left", fill="x", expand=True)
 
     def return_to_list(self) -> None:
         if self.mode == "compare":
